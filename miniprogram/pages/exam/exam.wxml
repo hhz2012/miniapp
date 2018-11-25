@@ -1,0 +1,4 @@
+<!--miniprogram/pages/exam/exam.wxml-->
+<text>开始练习</text>
+
+<button  type='default' bindtouchstart='onStartAnswer' bindtouchend="onEndAnswer">回答</button>
