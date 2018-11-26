@@ -72,8 +72,8 @@ Page({
     //create a test
     var that = this;
     this.tts();
-    //setTimeout(() => { that.showQuestion(); }, 1000);
-    setTimeout(() => { that.txspeechRecognition(); }, 1000);
+    setTimeout(() => { that.showQuestion(); }, 1000);
+    //setTimeout(() => { that.txspeechRecognition(); }, 1000);
 
   },
 
@@ -102,7 +102,7 @@ Page({
         }
       }
     })
-
+    
   },
   tts: function (e) {
     var grant_type = "client_credentials";
@@ -138,7 +138,7 @@ Page({
     var that = this;
     recorderManager.onStop((res) => {
       // 获取文件路径-提交到后台-后台发送到百度
-      speechRecognition(that, res);
+      that.uploadMP3File(that, res);
     })
 
     recorderManager.onError((res) => {
@@ -157,45 +157,46 @@ Page({
     }
     recorderManager.start(options);
   },
-  speechRecognition: function (that, res) {
+  createNonceStr: function () {
+    return Math.random().toString(36).substr(2, 15)
+  },
+  uploadMP3File: function(that, res) {
+    let fileName=this.createNonceStr()+".mp3";
     console.log("语音识别");
-    wx.uploadFile({
-      url: API_URL,
-      filePath: res.tempFilePath,
-      name: 'file',
-      formData: {
-        'user': 'test'
-      },
-      success: function (res) {
-        console.log(res); console.log(res.data);
-      },
-      fail: function () {
-        console.log("语音识别失败");
-      }
-    })
+    wx.cloud.uploadFile({
+      cloudPath: fileName, // 上传至云端的路径
+      filePath: res.tempFilePath, // 小程序临时文件路径
+    }).then((res) => {
+        // 返回文件 ID
+        console.log(res.fileID)
+        wx.cloud.getTempFileURL({
+          fileList: [res.fileID]
+        }).then((res) => {
+            // fileList 是一个有如下结构的对象数组
+            // [{
+            //    fileID: 'cloud://xxx.png', // 文件 ID
+            //    tempFileURL: '', // 临时文件网络链接
+            //    maxAge: 120 * 60 * 1000, // 有效期
+            // }]
+            console.log(res.fileList)
+            //get recognize result
+            that.txspeechRecognition(that,res.fileList);
+        }).catch(console.error)
+    }).catch(console.err);
   },
   txspeechRecognition: function (that, res) {
-    let cred = new Credential("", "");
-    let httpProfile = new HttpProfile();
-    httpProfile.endpoint = "aai.tencentcloudapi.com";
-    let clientProfile = new ClientProfile();
-    clientProfile.httpProfile = httpProfile;
-    let client = new AaiClient(cred, "", clientProfile);
-
-    let req = new models.SentenceRecognitionRequest();
-
-    let params = '{}'
-    req.from_json_string(params);
-
-
-    client.SentenceRecognition(req, function (errMsg, response) {
-
-      if (errMsg) {
-        console.log(errMsg);
-        return;
-      }
-
-      console.log(response.to_json_string());
+    if (!res||!that) return ;
+    let mp3=res[0].tempFileURL;
+    let voiceUrl="http://onlineinterview.cn/api/Values/?id="+encodeURI(mp3);
+    wx.request({
+    url:voiceUrl,
+    success: function (res) {
+      console.log(res.data); 
+      var data=JSON.parse(res.data)
+      that.setData({
+        AnswerText:data.Result
+      });
+    },
     });
   },
   onEndAnswer: function () {
